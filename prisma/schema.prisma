@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Auth fields
+  emailVerified            Boolean  @default(false)
+  verificationToken        String?  @unique
+  verificationTokenExpiry  DateTime? // Will be set whenever verificationToken is set
+  resetPasswordToken       String?  @unique
+  resetPasswordExpiry      DateTime? // Will be set whenever resetPasswordToken is set
+  
+  // Relations
+  chatMembers ChatMember[]
+  messages    Message[]
+  readMessages MessageRead[]
+}
+
+model Chat {
+  id          String       @id @default(cuid())
+  name        String?      // only for groups
+  type        ChatType
+  members     ChatMember[]
+  messages    Message[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model ChatMember {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  chat      Chat     @relation(fields: [chatId], references: [id])
+  chatId    String
+  role      ChatRole @default(MEMBER) 
+  joinedAt  DateTime @default(now())
+
+  @@unique([userId, chatId]) 
+}
+
+model Message {
+  id        String    @id @default(cuid())
+  chat      Chat      @relation(fields: [chatId], references: [id])
+  chatId    String
+  sender    User      @relation(fields: [senderId], references: [id])
+  senderId  String
+  content   String
+  type      MessageType @default(TEXT)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  isEdited  Boolean   @default(false)
+  isDeleted Boolean   @default(false)
+  readBy    MessageRead[]
+}
+
+enum ChatType {
+  PRIVATE
+  GROUP
+  GLOBAL
+}
+
+enum ChatRole {
+  ADMIN
+  MEMBER
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  AUDIO
+  VIDEO
+}
+
+model MessageRead {
+  id        String   @id @default(cuid())
+  message   Message  @relation(fields: [messageId], references: [id])
+  messageId String
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  readAt    DateTime @default(now())
+
+  @@unique([messageId, userId])
+}
